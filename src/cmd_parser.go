@@ -11,29 +11,35 @@ import (
 	"strconv"
 	"bytes"
 	"errors"
-	"unicode"
 )
 
-func ParseSet(buf *[]byte) (key string, flags, timeout int, numBytes int, err error) {
+type SetOperation struct {
+	key string
+	flags, timeout int
+	numBytes int
+	body []byte
+}
 
-	split := bytes.Fields(buf)
+func ParseSet(buf *[]byte) (*SetOperation, error) {
+
+	split := bytes.Fields(*buf)
 	if len(split) < 4 {
-		return "", 0, 0, "", errors.New("CLIENT_ERROR bad command line format")
+		return nil, errors.New("CLIENT_ERROR bad command line format")
 	}
-	key = string(split[0])
+	key := string(split[0])
 	flags, err := strconv.Atoi(string(split[1]))
 	if err != nil {
-		return "", 0, 0, "", errors.New("CLIENT_ERROR bad command line format")
+		return nil, errors.New("CLIENT_ERROR bad command line format")
 	}
 	timeout, err := strconv.Atoi(string(split[2]))
 	if err != nil {
-		return "", 0, 0, "", errors.New("CLIENT_ERROR bad command line format")
+		return nil, errors.New("CLIENT_ERROR bad command line format")
 	}
 	numBytes, err := strconv.Atoi(string(split[3]))
 	if err != nil {
-		return "", 0, 0, "", errors.New("CLIENT_ERROR bad command line format")
+		return nil, errors.New("CLIENT_ERROR bad command line format")
 	}
 
-	return key, flags, timeout, numbytes, nil
+	return &SetOperation{key, flags, timeout, numBytes, nil}, nil
 }
 

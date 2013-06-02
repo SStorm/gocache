@@ -12,13 +12,13 @@ import (
 )
 
 type Storage interface {
-	Set(key, value string, flags, timeout int)
-	Get(key string) string
+	Set(key string, value []byte, flags, timeout int)
+	Get(key string) []byte
 	Dump() string
 }
 
 type InMemoryStorage struct {
-	storageMap map[string]string
+	storageMap map[string][]byte
 }
 
 func NewStorage() Storage {
@@ -29,12 +29,12 @@ func NewInMemoryStorage() *InMemoryStorage {
 	return &InMemoryStorage{}
 }
 
-func (s *InMemoryStorage) Set(key, value string, flags, timeout int) {
+func (s *InMemoryStorage) Set(key string, value []byte, flags, timeout int) {
 	s.init()
 	s.storageMap[key] = value
 }
 
-func (s *InMemoryStorage) Get(key string) string {
+func (s *InMemoryStorage) Get(key string) []byte {
 	s.init()
 	return s.storageMap[key]
 }
@@ -42,14 +42,14 @@ func (s *InMemoryStorage) Get(key string) string {
 func (s *InMemoryStorage) Dump() string {
 	buffer := bytes.NewBufferString("");
 	for k, v := range s.storageMap {
-		buffer.WriteString(k + " -> " + v + "\n")
+		buffer.WriteString(k + " -> " + string(v) + "\n")
 	}
 	return buffer.String()
 }
 
 func (s *InMemoryStorage) init() {
 	if s.storageMap == nil {
-		s.storageMap = make(map[string]string)
+		s.storageMap = make(map[string][]byte)
 	}
 }
 

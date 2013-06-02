@@ -15,7 +15,6 @@ import (
 	"store"
 	"bytes"
 	"errors"
-	"strings"
 )
 
 var Logger *log.Logger
@@ -50,7 +49,7 @@ func main() {
 func handleConn(c net.Conn) {
 	incrementConnectionCount()
 	fmt.Println("New connection, total count: ", connectionCount);
-	setInProgress := false
+	var setInProgress *SetOperation
 	for {
 		buffer := make([]byte, RECEIVE_BUFFER_LENGTH);
 		n, err := c.Read(buffer)
@@ -63,23 +62,34 @@ func handleConn(c net.Conn) {
 		}
 		fmt.Println("Bytes read:", n)
 		prefix := string(buffer[0:3])
-		switch prefix {
-		case setInProgress:
 
+		if setInProgress != nil {
+			err := handleSetBody(setInProgress, buffer)
+			if err != nil {
+				c.Write([]byte("CLIENT_ERROR bad data chunk"))
+				continue
+			}
+			c.Write([]byte("STORED\n"))
+			setInProgress = nil
+			continue;
+		}
+
+		switch prefix {
 		case "set", "add":
-			err := handleSet(buffer[4:n])
+			var err error
+			setInProgress, err = handleSet(buffer[4:n])
 			if err != nil {
 				c.Write([]byte(err.Error() + "\n"))
 				return;
 			}
-			c.Write([]byte("END\n"))
 		case "get":
 			res, err := handleGet(buffer[4:n])
 			if err != nil {
 				c.Write([]byte(err.Error() + "\n"))
 			}
-			if res != "" {
-				c.Write([]byte(res + "\n"))
+			if len(res) > 0 {
+				c.Write(res)
+				c.Write([]byte("\n"))
 			}
 			c.Write([]byte("END\n"))
 		case "dum":
@@ -92,28 +102,29 @@ func handleConn(c net.Conn) {
 	}
 }
 
-func handleSet(buf []byte) error {
+func handleSet(buf []byte) (*SetOperation, error) {
 	fmt.Println("Handle set")
 
-	key, flags, timeout, numBytes, err := ParseSet(&buf)
+	oper, err := ParseSet(&buf)
 
 	if err != nil {
-		return errors.New("CLIENT_ERROR bad command line format")
+		return nil, errors.New("CLIENT_ERROR bad command line format")
 	}
 
+	return oper, nil
+}
+
+func handleSetBody(oper *SetOperation, buf []byte) error {
+	dataStorage.Set(oper.key, buf[0:oper.numBytes], oper.flags, oper.timeout)
 	return nil
 }
 
-func handleSetValue(buf []byte, key string, flags, timeout int) {
-
-}
-
-func handleGet(buf []byte) (string, error) {
+func handleGet(buf []byte) ([]byte, error) {
 	fmt.Println("Handle get")
 	var key string
 	split := bytes.Fields(buf)
 	if len(split) != 1 {
-		return "", errors.New("Only key must be specified in get operations")
+		return nil, errors.New("Only key must be specified in get operations")
 	}
 	key = string(split[0])
 	return dataStorage.Get(key), nil
