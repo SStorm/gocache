@@ -61,6 +61,7 @@ func handleConn(c net.Conn) {
 			return;
 		}
 		fmt.Println("Bytes read:", n)
+		fmt.Println("Reading: ", string(buffer[0:n-1]))
 		prefix := string(buffer[0:3])
 
 		if setInProgress != nil {
@@ -76,22 +77,21 @@ func handleConn(c net.Conn) {
 
 		switch prefix {
 		case "set", "add":
-			var err error
-			setInProgress, err = handleSet(buffer[4:n])
-			if err != nil {
-				c.Write([]byte(err.Error() + "\n"))
-				return;
+			setInProgress, err = handleSet(c, buffer[4:n])
+			if setInProgress == nil && err == nil {
+				c.Write([]byte("STORED\r\n"))
 			}
 		case "get":
 			res, err := handleGet(buffer[4:n])
 			if err != nil {
-				c.Write([]byte(err.Error() + "\n"))
+				c.Write([]byte(err.Error() + "\r\n"))
 			}
 			if len(res) > 0 {
+				info := fmt.Sprintf("%s %s %d %d\r\n", "VALUE", buffer[4:n-2], 0, len(res))
+				c.Write([]byte(info))
 				c.Write(res)
-				c.Write([]byte("\n"))
 			}
-			c.Write([]byte("END\n"))
+			c.Write([]byte("\r\nEND\r\n"))
 		case "dum":
 			c.Write([]byte("==== DUMP ====\n"))
 			c.Write([]byte(handleDump()))
@@ -102,20 +102,33 @@ func handleConn(c net.Conn) {
 	}
 }
 
-func handleSet(buf []byte) (*SetOperation, error) {
+func handleSet(c net.Conn, buf []byte) (*SetOperation, error) {
 	fmt.Println("Handle set")
 
 	oper, err := ParseSet(&buf)
 
 	if err != nil {
+		c.Write([]byte("CLIENT_ERROR bad command line format\n"))
 		return nil, errors.New("CLIENT_ERROR bad command line format")
+	}
+
+	fmt.Println("Numbytes: ", oper.numBytes, "ReadSoFar:", oper.readSoFar)
+	if oper.numBytes <= oper.readSoFar {
+		dataStorage.Set(oper.key, oper.body[0:oper.numBytes], oper.flags, oper.timeout)
+		return nil, nil
 	}
 
 	return oper, nil
 }
 
 func handleSetBody(oper *SetOperation, buf []byte) error {
-	dataStorage.Set(oper.key, buf[0:oper.numBytes], oper.flags, oper.timeout)
+	continuedOperation, err := ParseSetContinue(oper, &buf)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	dataStorage.Set(continuedOperation.key, continuedOperation.body, continuedOperation.flags,
+		continuedOperation.timeout)
 	return nil
 }
 

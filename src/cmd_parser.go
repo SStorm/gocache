@@ -18,6 +18,7 @@ type SetOperation struct {
 	flags, timeout int
 	numBytes int
 	body []byte
+	readSoFar int
 }
 
 func ParseSet(buf *[]byte) (*SetOperation, error) {
@@ -39,7 +40,24 @@ func ParseSet(buf *[]byte) (*SetOperation, error) {
 	if err != nil {
 		return nil, errors.New("CLIENT_ERROR bad command line format")
 	}
+	// Find the first newline
+	var body []byte
+	for i, b := range *buf {
+		if b == '\n' {
+			body = (*buf)[i+1:]
+			break
+		}
+	}
 
-	return &SetOperation{key, flags, timeout, numBytes, nil}, nil
+	return &SetOperation{key, flags, timeout, numBytes, body, len(body)}, nil
+}
+
+func ParseSetContinue(oper *SetOperation, buf *[]byte) (*SetOperation, error) {
+	var newBuf []byte = make([]byte, len(oper.body) + len(*buf))
+	copy(newBuf, oper.body)
+	copy(newBuf[len(oper.body):], *buf)
+	oper.body = newBuf
+	oper.readSoFar = len(oper.body)
+	return oper, nil
 }
 
