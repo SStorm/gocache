@@ -9,12 +9,14 @@ package store
 
 import (
 	"bytes"
+	"fmt"
 )
 
 type Storage interface {
 	Set(key string, value []byte, flags, timeout int)
 	Get(key string) []byte
 	Dump() string
+	Stats() string
 }
 
 type InMemoryStorage struct {
@@ -40,10 +42,16 @@ func (s *InMemoryStorage) Get(key string) []byte {
 }
 
 func (s *InMemoryStorage) Dump() string {
-	buffer := bytes.NewBufferString("");
+	buffer := bytes.NewBufferString("")
 	for k, v := range s.storageMap {
 		buffer.WriteString(k + " -> " + string(v) + "\n")
 	}
+	return buffer.String()
+}
+
+func (s *InMemoryStorage) Stats() string {
+	buffer := bytes.NewBufferString("")
+	buffer.WriteString(fmt.Sprintf("Total objects: %d \n", len(s.storageMap)))
 	return buffer.String()
 }
 
@@ -52,4 +60,3 @@ func (s *InMemoryStorage) init() {
 		s.storageMap = make(map[string][]byte)
 	}
 }
-

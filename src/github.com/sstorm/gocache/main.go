@@ -12,7 +12,7 @@ import (
 	"net"
 	"log"
 	"log/syslog"
-	"store"
+	"github.com/sstorm/gocache/store"
 	"bytes"
 	"errors"
 )
@@ -60,8 +60,8 @@ func handleConn(c net.Conn) {
 			fmt.Println("Client disconnected, total count: ", connectionCount);
 			return;
 		}
-		fmt.Println("Bytes read:", n)
-		fmt.Println("Reading: ", string(buffer[0:n-1]))
+		//fmt.Println("Bytes read:", n)
+		//fmt.Println("Reading: ", string(buffer[0:n-1]))
 		prefix := string(buffer[0:3])
 
 		if setInProgress != nil {
@@ -96,6 +96,10 @@ func handleConn(c net.Conn) {
 			c.Write([]byte("==== DUMP ====\n"))
 			c.Write([]byte(handleDump()))
 			c.Write([]byte("==== END DUMP ====\n"))
+		case "sta":
+			c.Write([]byte("==== STATS ====\n"))
+			c.Write([]byte(handleStats()))
+			c.Write([]byte("==== END STATS ====\n"))
 		default:
 			c.Write([]byte("Unknown command\n"))
 		}
@@ -103,8 +107,6 @@ func handleConn(c net.Conn) {
 }
 
 func handleSet(c net.Conn, buf []byte) (*SetOperation, error) {
-	fmt.Println("Handle set")
-
 	oper, err := ParseSet(&buf)
 
 	if err != nil {
@@ -112,7 +114,6 @@ func handleSet(c net.Conn, buf []byte) (*SetOperation, error) {
 		return nil, errors.New("CLIENT_ERROR bad command line format")
 	}
 
-	fmt.Println("Numbytes: ", oper.numBytes, "ReadSoFar:", oper.readSoFar)
 	if oper.numBytes <= oper.readSoFar {
 		dataStorage.Set(oper.key, oper.body[0:oper.numBytes], oper.flags, oper.timeout)
 		return nil, nil
@@ -133,7 +134,6 @@ func handleSetBody(oper *SetOperation, buf []byte) error {
 }
 
 func handleGet(buf []byte) ([]byte, error) {
-	fmt.Println("Handle get")
 	var key string
 	split := bytes.Fields(buf)
 	if len(split) != 1 {
@@ -145,6 +145,10 @@ func handleGet(buf []byte) ([]byte, error) {
 
 func handleDump() string {
 	return dataStorage.Dump()
+}
+
+func handleStats() string {
+	return dataStorage.Stats()
 }
 
 func initLogging() {
