@@ -1,10 +1,3 @@
-/**
- * Created with IntelliJ IDEA.
- * User: romanas
- * Date: 01/06/13
- * Time: 18:02
- * To change this template use File | Settings | File Templates.
- */
 package store
 
 import (

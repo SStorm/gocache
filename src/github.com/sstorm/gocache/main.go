@@ -161,7 +161,7 @@ func initLogging() {
 
 func init() {
 	fmt.Println("Init storage")
-	dataStorage = store.NewStorage()
+	dataStorage = store.NewDistributedStorage()
 }
 
 func incrementConnectionCount() {
